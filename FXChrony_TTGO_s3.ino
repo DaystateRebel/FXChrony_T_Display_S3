@@ -5,9 +5,11 @@
 #include "OneButton.h"
 #include <EEPROM.h>
 #include <esp_sleep.h>
+#include <PNGdec.h>
 #include "esp_adc_cal.h"
 #include "pellet.h"
 #include "gun.h"
+#include "DSR.h"
 
 /* 
  * For Minimum, Average, Maximum change MIN_AVE_MAX from 0 to 1 
@@ -162,6 +164,15 @@ lcd_cmd_t lcd_st7789v[] = {
 };
 #endif
 
+#define MAX_IMAGE_WDITH 320
+PNG png;
+
+void pngDraw(PNGDRAW *pDraw) {
+  uint16_t lineBuffer[MAX_IMAGE_WDITH];
+  png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+  tft.pushImage(0, pDraw->y, pDraw->iWidth, 1, lineBuffer);
+}
+
 void setup() {
   int i;
   pinMode(PIN_POWER_ON, OUTPUT);
@@ -171,7 +182,7 @@ void setup() {
   Serial.printf("Starting Open Display (TTGO T Display v1.1) V1.1... %d EEPROM bytes\n",EEPROM_SIZE);
 
   button.attachDoubleClick(doubleClick);
-  button.attachLongPressStop(longPressStop);
+  button.attachLongPressStart(longPressStart);
   button.attachClick(singleClick);
   
   adc1_config_width(ADC_WIDTH_BIT_12);
@@ -231,7 +242,7 @@ void setup() {
 #endif
   
   tft.setRotation(display_flip ? 1 : 3);
-  tft.setSwapBytes(true);
+//  tft.setSwapBytes(true);
 
 	render.setSerial(Serial);	  // Need to print render library message
 	render.showFreeTypeVersion(); // print FreeType version
@@ -245,7 +256,17 @@ void setup() {
 
 	render.setDrawer(tft); // Set drawer object
 
+  int16_t rc = png.openFLASH((uint8_t *)DSR, sizeof(DSR), pngDraw);  
+  if(rc == PNG_SUCCESS) {
+    tft.startWrite();
+    rc = png.decode(NULL, 0);
+    tft.endWrite();
+  }
+  delay(5000);
+  tft.setSwapBytes(true);
+
   tft.fillScreen(TFT_BLACK);
+
   dirty = true;
 
   uint16_t colours[] = {TFT_RED, TFT_GREEN, TFT_BLUE};
@@ -588,18 +609,25 @@ void handle_new_shot()
               Layout::Horizontal);
 
   /* Draw the Pellet energy */
+  uint16_t font_color = TFT_GREEN;
   if(units == UNITS_IMPERIAL) {
     energy = (my_pellets[pellet_index].pellet_weight_grains * powf(fspeed, 2))/450240;
     sprintf (sbuffer, "%.2f FPE", energy);
+    if(energy >= 12) {
+      font_color = TFT_RED;
+    }
   } else {
     energy = 0.5 * (my_pellets[pellet_index].pellet_weight_grams / 1000) * powf(fspeed, 2);
     sprintf (sbuffer, "%.2f J", energy);
+    if(energy >= 7.5) {
+      font_color = TFT_RED;
+    }
   }
   render.setFontSize(40);
   render.cdrawString(sbuffer,
               tft.width()/2,
               80,
-              TFT_WHITE,
+              font_color,
               TFT_BLACK,
               Layout::Horizontal);
 
@@ -1191,7 +1219,7 @@ void doubleClick()
   }
 }
 
-void longPressStop()
+void longPressStart()
 {
   if(renderMenu) {
     if(menuStackIndex == 1) {

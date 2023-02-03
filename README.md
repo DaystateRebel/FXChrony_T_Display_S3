@@ -24,9 +24,10 @@ Open the lib/TFT_eSPI.zip and extract the TFT_eSPI directory to you Arduino libs
 5. Start Arduino, click File | Open and navigate to the FXChrony_TTGO_v1.1 directory. 
 Select the FXChrony_TTGO_v1.1.ino file
 
-6. Install the One Button library
+6. Install the OneButton & PNGdec library
 Click Sketch | Include Library | Manage Libraries ...
 Use the "Filter your Search" to search for and install "onebutton"
+Repeat for "PNGdec"
 
 7. Select the hardware: Tools | Boards Manager ... | esp32 | ESP32-S3 Dev Module
 
